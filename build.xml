@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="VoiceSplitter" basedir="." default="build">
+
+	<target name="clean">
+		<delete dir="build" />
+		<delete dir="dist" />
+	</target>
+
+	<target name="build" depends="clean">
+		<mkdir dir="build/classes" />
+		<javac destdir="build/classes" debug="true" encoding="UTF-8">
+			<src path="src" />
+		</javac>
+		<copy todir="build/classes">
+			<fileset dir="src" />
+		</copy>
+		<jar jarfile="build/VoiceSplitter.jar" basedir="build/classes">
+			<manifest>
+				<attribute name="Main-Class" value="org.alex73.voice.splitter.VoiceSplitter" />
+			</manifest>
+		</jar>
+	</target>
+</project>

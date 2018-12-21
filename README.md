@@ -1,0 +1,1 @@
+This is software for split voice records(like audiobooks) into small pieces for speech synthesis or recognition training.
