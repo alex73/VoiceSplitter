@@ -1,14 +1,18 @@
 package org.alex73.voice.splitter;
 
+import java.nio.ByteBuffer;
 import java.text.MessageFormat;
 import java.util.concurrent.CancellationException;
 
 import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
 import javax.sound.sampled.LineEvent;
 import javax.sound.sampled.LineListener;
+import javax.sound.sampled.SourceDataLine;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+
+import org.alex73.voice.splitter.storage.AudioFile;
 
 public class Player {
     private static SHOW show;
@@ -33,7 +37,7 @@ public class Player {
     }
 
     static class SHOW extends SwingWorker<Void, Void> {
-        Clip clip;
+        SourceDataLine line;
         double start;
 
         public SHOW() {
@@ -43,18 +47,29 @@ public class Player {
 
         @Override
         protected Void doInBackground() throws Exception {
-            clip = AudioSystem.getClip();
+            AudioFile af = VoiceSplitter.audio.getFile();
+            line = AudioSystem.getSourceDataLine(af.getAudioFormat());
             double maxlen = Math.min(25, VoiceSplitter.audio.getLength());
-            VoiceSplitter.audio.getFile().output(clip, VoiceSplitter.audio.getStartTime() + start, maxlen - start);
-            clip.addLineListener(listener);
-            clip.start();
-            while (!isCancelled()) {
-                VoiceSplitter.audio.playPlace = clip.getMicrosecondPosition() / 1000000.0 + start;
-                VoiceSplitter.audio.repaint();
-                Thread.sleep(50);
+            line.addLineListener(listener);
+            line.open();
+            line.start();
+
+            ByteBuffer buffer = af.getPart(VoiceSplitter.audio.getStartTime() + start, maxlen - start);
+            int step = af.getOneSecondSize() / 20;
+            while (buffer.hasRemaining() && !isCancelled()) {
+                int len = Math.min(step, buffer.remaining());
+                line.write(buffer.array(), buffer.position(), len);
+                buffer.position(buffer.position() + len);
+                System.out.println(line.getMicrosecondPosition());
+                VoiceSplitter.audio.playPlace = line.getMicrosecondPosition() / 1000000.0 + start;
+                SwingUtilities.invokeLater(() -> VoiceSplitter.audio.repaint());
             }
-            clip.stop();
-            clip.close();
+            if (!isCancelled()) {
+                line.drain();
+            }
+            line.flush();
+            line.stop();
+            line.close();
             return null;
         }
 

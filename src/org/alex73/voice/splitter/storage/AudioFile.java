@@ -62,7 +62,7 @@ public class AudioFile {
                 break;
             }
         }
-        if (fmtFormat != 1) {
+        if (fmtFormat != 1 && fmtFormat != -2) {
             throw new Exception("PCM audio is supported only");
         }
         if (fmtChannels != 1) {
@@ -108,7 +108,7 @@ public class AudioFile {
         header.putInt(0x20746d66); // fmt
         header.putInt(16);
 
-        header.putShort(fmtFormat);
+        header.putShort((short)1);
         header.putShort(fmtChannels);
         header.putInt(fmtSampleRate);
         header.putInt(fmtByteRate);
@@ -182,9 +182,27 @@ public class AudioFile {
         if (offset + size > dataSize) {
             size = dataSize - offset;
         }
-        AudioFormat fmt = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, fmtSampleRate, fmtBitsPerSample, fmtChannels,
+        clip.open(getAudioFormat(), data, offset, size);
+    }
+
+    public ByteBuffer getPart(double start, double time) throws Exception {
+        int startFrame = (int) Math.round(start * fmtSampleRate);
+        int sizeFrame = (int) Math.round(time * fmtSampleRate);
+        int offset = dataOffset + fmtBitsPerSample / 8 * startFrame;
+        int size = fmtBitsPerSample / 8 * sizeFrame;
+        if (offset + size > dataSize) {
+            size = dataSize - offset;
+        }
+        return ByteBuffer.wrap(data, offset, size);
+    }
+
+    public int getOneSecondSize() {
+        return fmtBitsPerSample / 8 * fmtSampleRate;
+    }
+
+    public AudioFormat getAudioFormat() {
+        return new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, fmtSampleRate, fmtBitsPerSample, fmtChannels,
                 fmtBitsPerSample / 8, fmtSampleRate, false);
-        clip.open(fmt, data, offset, size);
     }
 
     class OutputReader extends Thread {
