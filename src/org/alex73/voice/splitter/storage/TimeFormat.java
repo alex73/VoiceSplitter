@@ -13,6 +13,9 @@ public class TimeFormat {
     }
 
     public static double s2t(String time) {
+        if (time == null) {
+            return 0;
+        }
         Matcher ma = RE.matcher(time);
         if (!ma.matches()) {
             throw new NumberFormatException("Wrong time: " + time);

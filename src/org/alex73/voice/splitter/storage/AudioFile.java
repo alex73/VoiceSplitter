@@ -138,6 +138,7 @@ public class AudioFile {
         int r = p.waitFor();
         stdin.join();
         if (r != 0) {
+            System.err.println(new String(stderr.getContent()));
             throw new Exception("Error convert " + f + ": " + r);
         }
         data = stdin.getContent();
@@ -150,7 +151,9 @@ public class AudioFile {
     /**
      * Returns volumes as possible values from 0 to 10000.
      */
+    @Deprecated
     public short[] getVolume(double start, double time, int samples) {
+        long before=System.currentTimeMillis();
         ByteBuffer mapped = ByteBuffer.wrap(data);
         mapped.order(ByteOrder.LITTLE_ENDIAN);
         int startFrame = (int) Math.round(start * fmtSampleRate);
@@ -163,15 +166,48 @@ public class AudioFile {
         mapped.position(dataOffset + fmtBitsPerSample / 8 * startFrame);
         for (int fr = startFrame; fr < endFrame; fr++) {
             int i = (int) (((long) fr - startFrame) * samples / (endFrame - startFrame));
-            int v;
-            if (fmtBitsPerSample == 16) {
-                v = Math.abs(mapped.getShort()) * 10000 / 32768;
-            } else {
-                throw new RuntimeException("Wrong file format");
-            }
+            int                 v = Math.abs(mapped.getShort()) * 10000 / 32768;
             result[i] = (short) Math.max(result[i], v);
         }
+        long after=System.currentTimeMillis();
+        System.out.println("getVolume time = "+(after-before)+"ms");
         return result;
+    }
+
+    /**
+     * Returns volume value from 0 to 10000.
+     */
+    public int getVolume(double start, double time) {
+        ByteBuffer mapped = ByteBuffer.wrap(data);
+        mapped.order(ByteOrder.LITTLE_ENDIAN);
+        int startFrame = (int) Math.round(start * fmtSampleRate);
+        if (startFrame < 0) {
+            startFrame = 0;
+        }
+        int endFrame = (int) Math.round((start + time) * fmtSampleRate);
+        if (endFrame < 0) {
+            endFrame = 0;
+        }
+        if (fmtBitsPerSample / 8 * endFrame > dataSize) {
+            endFrame = dataSize / (fmtBitsPerSample / 8);
+        }
+
+        try {
+            mapped.position(dataOffset + fmtBitsPerSample / 8 * startFrame);
+        } catch (IllegalArgumentException ex) {
+            return 0;
+        }
+        int count = endFrame - startFrame;
+        if (count > 0) {
+            long result = 0;
+            for (int fr = startFrame; fr < endFrame; fr++) {
+                // result = Math.max(result, Math.abs(mapped.getShort()));
+                result += Math.abs(mapped.getShort());
+            }
+            return (int) (result / count);// * 10000 / 32768);
+        } else {
+            return 0;
+        }
     }
 
     public void output(Clip clip, double start, double time) throws Exception {
